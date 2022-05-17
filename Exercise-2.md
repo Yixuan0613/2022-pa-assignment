@@ -1,15 +1,7 @@
 Exercise 2
 ================
 
-## GitHub Documents
-
-This is an R Markdown format used for publishing markdown documents to
-GitHub. When you click the **Knit** button all R code chunks are run and
-a markdown file (.md) suitable for publishing to GitHub is generated.
-
-## Including Code
-
-You can include R code in the document as follows:
+## 1. The individual-level variables
 
 ``` r
 library(arrow)
@@ -36,6 +28,10 @@ new_df <- predict_race(df, surname.only = TRUE)
 
     ## Warning in merge_surnames(voter.file): Probabilities were imputed for 247012
     ## surnames that could not be matched to Census list.
+
+Problem: I know the highest possibility that which race each person can
+be, but Can’t figure out how to calculate how many people are in each
+race.
 
 ``` r
 library(lubridate)
@@ -158,9 +154,12 @@ Data summary
 | examiner_id   |         1 |             1 | 78752.86 | 13575.30 | 59012 | 66531.75 | 75346 | 93750.75 |   99990 | ▇▆▃▂▇ |
 | tenure        |         0 |             1 |  5844.53 | 54449.66 |    27 |  3125.00 |  4918 |  6097.00 | 2727903 | ▇▁▁▁▁ |
 
-## Including Plots
+Problem: The tenure of each examiner is listed above. The problem is how
+to export the data and use them to make a plot.
 
-![](Exercise-2_files/figure-gfm/pressure-1.png)<!-- -->
+## 2. The Plots
+
+Gender ![](Exercise-2_files/figure-gfm/pressure-1.png)<!-- -->
 
 Note that the `echo = FALSE` parameter was added to the code chunk to
 prevent printing of the R code that generated the plot.
