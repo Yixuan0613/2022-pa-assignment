@@ -1,0 +1,222 @@
+---
+title: "Exercise 3"
+output: github_document
+---
+
+```{r setup-1, include=FALSE}
+#rm(list = ls()) # clear memory, step 1
+#gc() # clear memory, step 2
+knitr::opts_chunk$set(echo = TRUE)
+# load the necessary packages ("extensions")
+library(tidyverse)
+```
+
+```{r setup-2}
+# set path for R to find our data
+data_path <- "D:/R/Assignment/PA assignment/"
+```
+
+## 1. Load data
+
+```{r load-data}
+library(arrow) # to be able to load data in the .parquet format
+# read application data
+app_data_sample <- read_parquet(paste0(data_path,"app_data_sample.parquet"))
+```
+
+```{r show-data}
+app_data_sample
+```
+## Get gender for examiners
+
+```{r gender-1}
+library(gender)
+#install_genderdata_package() # only run this line the first time you use the package, to get data for it
+# get a list of first names without repetitions
+examiner_names <- app_data_sample %>% 
+  distinct(examiner_name_first)
+examiner_names
+```
+
+```{r gender-2}
+# get a table of names and gender
+examiner_names_gender <- examiner_names %>% 
+  do(results = gender(.$examiner_name_first, method = "ssa")) %>% 
+  unnest(cols = c(results), keep_empty = TRUE) %>% 
+  select(
+    examiner_name_first = name,
+    gender,
+    proportion_female
+  )
+examiner_names_gender
+```
+
+```{r gender-3}
+# remove extra colums from the gender table
+examiner_names_gender <- examiner_names_gender %>% 
+  select(examiner_name_first, gender)
+# joining gender back to the dataset
+app_data_sample <- app_data_sample %>% 
+  left_join(examiner_names_gender, by = "examiner_name_first")
+# cleaning up
+rm(examiner_names)
+rm(examiner_names_gender)
+gc()
+```
+
+## Guess the examiner's race
+
+```{r race-1}
+library(wru)
+examiner_surnames <- app_data_sample %>% 
+  select(surname = examiner_name_last) %>% 
+  distinct()
+examiner_surnames
+```
+
+```{r race-2}
+examiner_race <- predict_race(voter.file = examiner_surnames, surname.only = T) %>% 
+  as_tibble()
+examiner_race
+```
+
+```{r race-3}
+examiner_race <- examiner_race %>% 
+  mutate(max_race_p = pmax(pred.asi, pred.bla, pred.his, pred.oth, pred.whi)) %>% 
+  mutate(race = case_when(
+    max_race_p == pred.asi ~ "Asian",
+    max_race_p == pred.bla ~ "black",
+    max_race_p == pred.his ~ "Hispanic",
+    max_race_p == pred.oth ~ "other",
+    max_race_p == pred.whi ~ "white",
+    TRUE ~ NA_character_
+  ))
+examiner_race
+```
+
+```{r race-4}
+# removing extra columns
+examiner_race <- examiner_race %>% 
+  select(surname,race)
+app_data_sample <- app_data_sample %>% 
+  left_join(examiner_race, by = c("examiner_name_last" = "surname"))
+rm(examiner_race)
+rm(examiner_surnames)
+gc()
+```
+## Examiner's tenure 
+
+```{r tenure-1}
+library(lubridate) # to work with dates
+examiner_dates <- app_data_sample %>% 
+  select(examiner_id, filing_date, appl_status_date) 
+examiner_dates
+```
+
+```{r tenure-2}
+examiner_dates <- examiner_dates %>% 
+  mutate(start_date = ymd(filing_date), end_date = as_date(dmy_hms(appl_status_date))) %>% 
+  filter(year(end_date)<2018)
+```
+
+```{r tenure-3}
+examiner_dates <- examiner_dates %>% 
+  group_by(examiner_id) %>% 
+  summarise(
+    earliest_date = min(start_date, na.rm = TRUE), 
+    latest_date = max(end_date, na.rm = TRUE),
+    tenure_days = interval(earliest_date, latest_date) %/% days(1)
+    )
+examiner_dates
+```
+
+```{r tenure-4}
+app_data_sample <- app_data_sample %>% 
+  left_join(examiner_dates, by = "examiner_id")
+rm(examiner_dates)
+gc()
+```
+
+## Art Unit size
+
+```{r art unit size-1}
+table(app_data_sample$examiner_art_unit)
+```
+row (1,3,5,7,9,......):art unit 
+row (2,4,6,8,10,.....):art unit size 
+
+```{r art unit size-2}
+count = table(app_data_sample$examiner_art_unit)
+art_unit = attr(count,"dimnames")[[1]]
+art_unit_size_list = as.numeric(count)
+art_unit_size_df = data.frame(art_unit = art_unit, art_unit_size = art_unit_size_list)
+```
+
+```{r art unit size-3}
+merge_df = merge(app_data_sample, art_unit_size_df, by.x = "examiner_art_unit", by.y = "art_unit")
+```
+
+## Art Unit gender ratio
+
+```{r art unit gender ratio-1}
+ratio_table = table(merge_df$gender,merge_df$examiner_art_unit)
+```
+
+```{r art unit gender ratio-2}
+male = as.numeric(ratio_table[2,1:291]) 
+female = as.numeric(ratio_table[1,1:291]) 
+art_unit = attr(ratio_table,"dimnames")[[2]]
+gender_df = data.frame(art_unit = art_unit,male = male,female = female)
+gender_df$gender_ratio = male/female
+```
+
+```{r art unit gender ratio-3}
+merge_df_2 = merge(merge_df, gender_df, by.x = "examiner_art_unit", by.y = "art_unit")
+```
+
+The ratio is male:female
+
+## OLS regression model
+
+Because the OLS model requires each variable is independent, I chose not to put gender and art unit gender ratio in the same model.  
+
+## OLS regression model 1
+
+Gender + Race + Art Unit Size
+
+```{r model-1}
+library(caTools)
+model_1 = lm(tenure_days ~ gender+race+art_unit_size,data = merge_df_2)
+summary(model_1)
+```
+## OLS regression model 2
+
+Race + Art Unit Size + Art Unit Gender Ratio
+
+```{r model 2-1}
+merge_df_3 = merge_df_2[!is.na(merge_df_2$gender_ratio),]
+merge_df_3 = merge_df_3[!is.infinite(merge_df_3$gender_ratio),]
+model_2 = lm(tenure_days ~ race+art_unit_size+gender_ratio,data = merge_df_3)
+summary(model_2)
+```
+## Which model is a better fit?
+
+Over all, this two models don't have a very significant different.
+
+1. If we look at the residuals of two models, both of them have a similar symmetry status. The median of the model 2 is closer to the mean, which is 0, but not a big difference compared to model 1.
+2. The significant codes of all variables in model 1 are ***. 
+   The significant codes of "gender ratio" in model 2 is *. 
+3. The residual standard error of model 2 is bigger than that of model 1.
+4. The adjusted R-squared of model 1 is slightly smaller than that of model 2.
+5. Therefore, I think model 1 fits the data a little bit better than model 2.
+
+## The effects of the variables in the models
+
+1. As we can tell from the "Coefficients" section in the model outputs. Race has a much more significant impact on tenure days than other variables. Being white and black is positive related with tenure days, and being other races is negative related.
+2. Gender also has an impact. Male stay longer than female.
+
+## What recommendations can you offer?
+
+1. The organization should look into its policy regarding minorities. Whether the environment is friendly enough for races other than black and white? Obviously white people is the major race in the US and usually has a better survival conditions. As well as the right of African American people, we all know that the US is making efforts to accommodate them. However, what about the rights of others minority groups? 
+2. The organization also need to look into its policy regarding female employees. What makes them stay shorter than male employees? 
+3. Since there are different results regarding different gender and races, the organization should pay attention that do these differences impact the organization negatively?
