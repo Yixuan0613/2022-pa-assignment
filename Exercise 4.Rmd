@@ -1,0 +1,67 @@
+---
+title: "Exercise 4"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidygraph)
+library(ggraph)
+```
+
+## Define the network
+
+```{r define-network}
+# define nodes
+node_names <- tibble(
+  seat = c("A","B","C","D","1","2","3","4","5","6"),
+)
+node_names
+# define connections (have to correspond to ties 1-2, 2-A, A-B, A-C, B-D, B-C, B-3, C-D, C-3, C-4, D-3, D-5, 3-4, 5-3, 5-4, 6-5, 6-D, 6-B)
+# for each element in `from` there is a corresponding element in `to`
+edge_list <- tibble(
+  from = c("1","2","A","A","B","B","B","C","C","C","D","D","3","5","5","6","6","6"),
+  to   = c("2","A","B","C","D","C","3","D","3","4","3","5","4","3","4","5","D","B")
+)
+edge_list
+```
+```{r define-graph}
+# combine this information into a network graph object
+seat_graph <- tbl_graph(nodes = node_names, edges = edge_list, directed = FALSE)
+seat_graph
+```
+```{r plot-graph}
+seat_graph %>% 
+    ggraph(layout = 'kk') + 
+    geom_edge_link() + 
+    geom_node_point(size = 8, colour = 'gray') +
+    geom_node_text(aes(label = seat), colour = 'steelblue', vjust = 0.4) + 
+    ggtitle('Seat network') + 
+    theme_graph()
+```
+```{r}
+seat_graph <- seat_graph %>% 
+  activate(nodes) %>% # we need to state we'll be adding to nodes, not edges
+  mutate(d_centrality = centrality_degree()) %>%  # adding measure of degree centrality
+  mutate(b_centrality = centrality_betweenness()) # adding betweenness centrality
+seat_graph
+```
+```{r plot-centrality}
+seat_graph %>% 
+  ggraph(layout = 'kk') + 
+  geom_edge_link() + 
+  geom_node_point(aes(size = d_centrality, colour = b_centrality)) + 
+  scale_color_continuous(guide = 'legend') +
+  geom_node_text(aes(label = seat), colour = 'red', vjust = 1.6) + 
+  ggtitle('Seat network') + 
+  theme_graph()
+```
+
+## Seat choice
+
+1. If we only look at the "centrality degree", seat B, C, D are equally important.
+2. If we only look at the "centrality betweenness", seat A is the most important one.
+3. If we combine the results, seat B and C will be the better choice. However, choosing B or C means we will give up on the opportunity of connecting with the people who sit on seat 1 and 2.
+4. Even though sitting on seat A we can't have the chance to know as most people as possible, Seat A is the only spot that we can connect with both groups.
+5. In conclusion, if we want to know more people, we should sit on seat B or C. If we want to have a wider connection, we should sit on seat A.
