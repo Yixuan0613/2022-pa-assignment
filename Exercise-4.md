@@ -6,7 +6,7 @@ Exercise 4
 ``` r
 # define nodes
 node_names <- tibble(
-  seat = c("A","B","C","D",1,2,3,4,5,6),
+  seat = c("A","B","C","D","1","2","3","4","5","6"),
 )
 node_names
 ```
@@ -29,8 +29,8 @@ node_names
 # define connections (have to correspond to ties 1-2, 2-A, A-B, A-C, B-D, B-C, B-3, C-D, C-3, C-4, D-3, D-5, 3-4, 5-3, 5-4, 6-5, 6-D, 6-B)
 # for each element in `from` there is a corresponding element in `to`
 edge_list <- tibble(
-  from = c(1,2,"A","A","B","B","B","C","C","C","D","D",3,5,5,6,6,6),
-  to   = c(2,"A","B","C","D","C",3,"D",3,4,3,5,4,3,4,5,"D","B")
+  from = c("1","2","A","A","B","B","B","C","C","C","D","D","3","5","5","6","6","6"),
+  to   = c("2","A","B","C","D","C","3","D","3","4","3","5","4","3","4","5","D","B")
 )
 edge_list
 ```
